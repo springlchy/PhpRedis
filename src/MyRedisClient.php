@@ -7,7 +7,7 @@ class MyRedisClient {
     private $error;
 
     public function __construct() {
-        $this->host = false;
+        $this->socket = false;
         $this->error = "";
     }
 
@@ -57,7 +57,6 @@ class MyRedisClient {
         }
     }
 
-
     /**
      * 关闭连接
      * @return void 没有返回值
@@ -67,5 +66,57 @@ class MyRedisClient {
             socket_close($this->socket);
             $this->socket = false;
         }
+    }
+
+    /**
+     * [set description]
+     * @param [type]  $key     [description]
+     * @param [type]  $value   [description]
+     * @param integer $expires [description]
+     */
+    public function set($key, $value, $expires = 5) {
+        $command = sprintf("*5\r\n\$3\r\nset\r\n\$%d\r\n%s\r\n\$%d\r\n%s\r\n\$2\r\nEX\r\n\$%d\r\n%s\r\n", strlen($key), $key, strlen($value . ''), $value, strlen($expires . ''), $expires);
+
+        $result = socket_write($this->socket, $command, strlen($command));
+        if ($result === false) {
+            $this->setSocketError();
+            return false;
+        }
+
+        $code = socket_read($this->socket, 128, PHP_NORMAL_READ);
+        socket_read($this->socket, 1, PHP_BINARY_READ);
+
+        if ($code[0] == '+') {
+            return true;
+        } elseif ($code[0] == '-') {
+            $this->error = $code;
+            return false;
+        }
+    }
+
+    /**
+     * [get description]
+     * @param  [type] $key [description]
+     * @return [type]      [description]
+     */
+    public function get($key) {
+        $command = sprintf("*2\r\n\$3\r\nget\r\n\$%d\r\n%s\r\n", strlen($key), $key);
+
+        $result = socket_write($this->socket, $command, strlen($command));
+        if ($result === false) {
+            $this->setSocketError();
+            return false;
+        }
+
+        $line1 = socket_read($this->socket, 1024, PHP_NORMAL_READ);
+
+        $len = intval(trim($line1, '$\r'));
+        if ($len == -1) {
+            socket_read($this->socket, 1, PHP_BINARY_READ);
+            return false;
+        }
+
+        $line2 = socket_read($this->socket, $len+3, PHP_BINARY_READ);
+        return substr($line2, 1, $len);
     }
 }

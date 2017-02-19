@@ -11,7 +11,11 @@ if ($result === false) {
 	echo $redis->getLastError();
 	
 } else {
-	echo "connect to redis success";
+	echo "connect to redis success", PHP_EOL;
+
+	$redis->set("b", "hahaha", 10);
+
+	echo $redis->get("b");
 }
 
 $redis->close();
